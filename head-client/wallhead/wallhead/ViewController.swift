@@ -16,8 +16,8 @@ class ViewController: UIViewController ,UITextFieldDelegate,PTChannelDelegate{
     @IBOutlet weak var input: UITextField!
     @IBOutlet weak var output: UITextView!
     
-    var serverChannel:PTChannel?
-    var peerChannel:PTChannel?
+    var serverChannel:PTChannel? = nil
+    var peerChannel:PTChannel? = nil
     
     
     override func viewDidLoad() {
@@ -83,10 +83,20 @@ class ViewController: UIViewController ,UITextFieldDelegate,PTChannelDelegate{
 
     
     //MARK: - PTChannelDelegate
+    /**
+    * 当某个终端接受到数据片段时调用。
+    **/
     func ioFrameChannel(_ channel: PTChannel!, didReceiveFrameOfType type: UInt32, tag: UInt32, payload: PTData?) {
-        
+        if(type == PTExampleFrameTypeTextMessage){
+            self.appendOutputMessage(String.init(format:"%@",payload.data))
+        }else if(type == PTExampleFrameTypePing && peerChannel != nil){
+            peerChannel.sendFrame(ofType: UInt32(PTExampleFrameTypePong),tag,withPayload:nil,callback:nil)
+        }
     }
     
+    /**
+    * 当终端传入一个数据片段时调用。返回false忽略这个这个数据片段，如果这个delegate没有执行，所有数据片段都会被接受。
+    **/
     func ioFrameChannel(_ channel: PTChannel!, shouldAcceptFrameOfType type: UInt32, tag: UInt32, payloadSize: UInt32)-> Bool {
         if(channel != peerChannel){
             return false
@@ -98,12 +108,27 @@ class ViewController: UIViewController ,UITextFieldDelegate,PTChannelDelegate{
         return true
     }
     
+    /**
+    *当终端关闭时，该方法被调用。如果是错误到导致的关闭，输出错误
+    **/
     func ioFrameChannel(_ channel: PTChannel!, didEndWithError error: Error?) {
-        
+        if(error != nil){
+            self.appendOutputMessage(String.init(format:"%@ ended with error:%@",channel,error))
+        }else {
+            self.appendOutputMessage(String.init(format:"Disconnected form:%@",channel.userInfo))
+        }
     }
     
+    /**
+     * 监听终端，当一个新的终端被接受时触发这个方法
+    **/
     func ioFrameChannel(_ channel: PTChannel!, didAcceptConnection otherChannel: PTChannel!,from address: PTAddress!) {
-        
+        if(self.peerChannel != nil){
+            self.peerChannel.cancel
+        }
+        self.peerChannel = otherChannel
+        self.peerChannel = address
+        self.appendOutputMessage(String.init(format: "Connected to %@", address))
     }
     
   
